@@ -48,7 +48,7 @@ spec:
     # ── Source 2: This GitOps repository (for environment values) ─────────────
     # Using the multi-source feature to keep values in this repo while the
     # chart lives upstream.
-    - repoURL: https://github.com/CollinsD61/otel-gitops
+    - repoURL: https://github.com/CollinsD61/otel-gitops.git
       targetRevision: HEAD
       ref: values  # Alias used by $values in valueFiles above
 

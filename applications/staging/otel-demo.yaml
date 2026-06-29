@@ -41,7 +41,7 @@ spec:
           - $values/environments/staging/values.yaml
 
     # ── Source 2: This GitOps repository (for environment values) ─────────────
-    - repoURL: https://github.com/CollinsD61/otel-gitops
+    - repoURL: https://github.com/CollinsD61/otel-gitops.git
       targetRevision: HEAD
       ref: values
 

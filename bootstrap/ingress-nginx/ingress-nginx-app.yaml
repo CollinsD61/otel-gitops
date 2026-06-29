@@ -27,7 +27,7 @@ spec:
         releaseName: ingress-nginx
         valueFiles:
           - $values/bootstrap/ingress-nginx/ingress-nginx-values.yaml
-    - repoURL: https://github.com/CollinsD61/otel-gitops
+    - repoURL: https://github.com/CollinsD61/otel-gitops.git
       targetRevision: HEAD
       ref: values
 

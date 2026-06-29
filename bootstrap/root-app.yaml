@@ -32,7 +32,7 @@ spec:
   project: default
 
   source:
-    repoURL: https://github.com/CollinsD61/otel-gitops
+    repoURL: https://github.com/CollinsD61/otel-gitops.git
     targetRevision: HEAD   # Track the default branch (main)
 
     # The root-app watches the entire applications/ tree so that adding a new
@@ -89,7 +89,7 @@ spec:
 
   source:
     # TODO: Change repoURL to match your fork / organisation.
-    repoURL: https://github.com/CollinsD61/otel-gitops
+    repoURL: https://github.com/CollinsD61/otel-gitops.git
     targetRevision: HEAD
 
     # Watches every Application manifest under bootstrap/*/

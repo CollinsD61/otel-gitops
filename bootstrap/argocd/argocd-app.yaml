@@ -37,7 +37,7 @@ spec:
         releaseName: argocd
         valueFiles:
           - $values/bootstrap/argocd/argocd-values.yaml
-    - repoURL: https://github.com/CollinsD61/otel-gitops
+    - repoURL: https://github.com/CollinsD61/otel-gitops.git
       targetRevision: HEAD
       ref: values
 
