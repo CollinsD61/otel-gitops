@@ -1,0 +1,89 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# bootstrap/argocd/argocd-values.yaml
+#
+# Helm values for the ArgoCD self-managed installation.
+# Chart: https://argoproj.github.io/argo-helm  (argo-cd)
+# Reference: https://github.com/argoproj/argo-helm/tree/main/charts/argo-cd
+#
+# TODO: Adjust values for your environment before applying.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ─── Global ───────────────────────────────────────────────────────────────────
+global:
+  # TODO: Set your image tag to match the ArgoCD version you bootstrapped with.
+  image:
+    tag: "v2.11.0"
+
+# ─── ArgoCD Server ────────────────────────────────────────────────────────────
+server:
+  replicas: 1   # TODO: Increase to 2+ for HA production setup
+
+  service:
+    type: ClusterIP   # Expose via Ingress (see ingress block below)
+
+  ingress:
+    enabled: false    # TODO: Set to true and configure hostname for production
+    # ingressClassName: nginx
+    # hostname: argocd.example.com   # TODO: replace with your domain
+    # tls: true
+    # annotations:
+    #   cert-manager.io/cluster-issuer: letsencrypt-prod
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ─── Application Controller ───────────────────────────────────────────────────
+controller:
+  replicas: 1   # TODO: Increase to 2+ for HA
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# ─── Repo Server ──────────────────────────────────────────────────────────────
+repoServer:
+  replicas: 1   # TODO: Scale up for large number of Applications
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ─── Redis ────────────────────────────────────────────────────────────────────
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ─── Dex (OIDC) ───────────────────────────────────────────────────────────────
+dex:
+  enabled: false  # TODO: Enable and configure SSO for production
+  # See: https://argo-cd.readthedocs.io/en/stable/operator-manual/user-management/
+
+# ─── Configs ─────────────────────────────────────────────────────────────────
+configs:
+  params:
+    # Allow insecure HTTP for local development; disable for production.
+    server.insecure: true   # TODO: Set to false when TLS is configured
+
+  # TODO: Configure RBAC policies for your team.
+  # rbac:
+  #   policy.csv: |
+  #     p, role:readonly, applications, get, */*, allow
+  #     g, <YOUR_TEAM>, role:admin

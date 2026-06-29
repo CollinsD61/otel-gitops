@@ -1,0 +1,86 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# manifests/namespaces/namespace.yaml
+#
+# Namespace definitions for the OpenTelemetry Demo and supporting services.
+#
+# Best practices applied:
+#   - Labels for monitoring and policy enforcement.
+#   - Pod Security Standards enforced via labels.
+#   - Resource quotas are separate resources (see ResourceQuota TODO).
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── otel-demo namespace ────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: otel-demo
+  labels:
+    # Standard Kubernetes recommended labels.
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+
+    # Pod Security Standards — enforce baseline policy.
+    # Docs: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+    # TODO: Change to "restricted" once all services support it.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+
+    # Label used by NetworkPolicy selectors.
+    kubernetes.io/metadata.name: otel-demo
+
+    # Environment label — used by monitoring dashboards and alert routing.
+    # TODO: Override this label in each environment's manifest if needed.
+    environment: dev   # TODO: Parameterise per environment
+
+  annotations:
+    # Human-readable description for cluster administrators.
+    description: "OpenTelemetry Demo microservices application"
+
+    # TODO: Add cost-allocation labels for chargeback.
+    # billing/team: "platform"
+    # billing/project: "otel-demo"
+
+---
+# ── monitoring namespace ───────────────────────────────────────────────────────
+# Pre-create the monitoring namespace so that Prometheus, Grafana, Loki, and
+# Tempo can be deployed into it later.
+# TODO: Uncomment when the monitoring stack is ready.
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: monitoring
+#   labels:
+#     app.kubernetes.io/managed-by: argocd
+#     app.kubernetes.io/part-of: otel-gitops
+#     pod-security.kubernetes.io/enforce: baseline
+#   annotations:
+#     description: "Centralized monitoring stack (Prometheus, Grafana, Loki, Tempo)"
+
+---
+# ── ingress-nginx namespace ────────────────────────────────────────────────────
+# Managed by the ingress-nginx bootstrap Application; defined here for
+# reference and labelling purposes only.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+    pod-security.kubernetes.io/enforce: baseline
+  annotations:
+    description: "NGINX Ingress Controller"
+
+---
+# ── cert-manager namespace ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+    pod-security.kubernetes.io/enforce: baseline
+  annotations:
+    description: "cert-manager — automated TLS certificate management"

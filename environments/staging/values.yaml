@@ -1,0 +1,258 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# environments/staging/values.yaml
+#
+# Helm values for the OpenTelemetry Demo — STAGING environment
+#
+# CHART: opentelemetry-demo
+# REPO:  https://open-telemetry.github.io/opentelemetry-helm-charts
+#
+# PHILOSOPHY:
+#   - Production-like configuration for pre-release validation.
+#   - Two replicas for most services (tests HA failover).
+#   - Ingress enabled with a staging hostname.
+#   - Autoscaling enabled with conservative thresholds.
+#   - Slightly higher resource limits than dev.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ─── Global settings ─────────────────────────────────────────────────────────
+global:
+  # TODO: Pin to a specific image tag for staging validation.
+  # imageTag: "1.10.0"
+  imagePullPolicy: IfNotPresent
+
+# ─── OpenTelemetry Collector ─────────────────────────────────────────────────
+opentelemetry-collector:
+  enabled: true
+
+  replicaCount: 2   # Two replicas for HA validation
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# ─── Demo services ───────────────────────────────────────────────────────────
+components:
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    service:
+      type: ClusterIP   # Exposed via Ingress in staging
+
+    ingress:
+      enabled: true
+      # TODO: Replace with your staging domain.
+      # hostname: otel-demo.staging.example.com
+      annotations:
+        kubernetes.io/ingress.class: nginx
+        # Use Let's Encrypt staging issuer to avoid rate limits.
+        cert-manager.io/cluster-issuer: letsencrypt-staging
+        # TODO: Enable when rate limiting is needed.
+        # nginx.ingress.kubernetes.io/limit-rps: "50"
+      tls:
+        enabled: true
+        # TODO: Replace with your staging domain.
+        # secretName: otel-demo-staging-tls
+
+  # ── Cart Service ───────────────────────────────────────────────────────────
+  cartService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ── Product Catalog ─────────────────────────────────────────────────────────
+  productCatalogService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  # ── Checkout ────────────────────────────────────────────────────────────────
+  checkoutService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  # ── Recommendation ──────────────────────────────────────────────────────────
+  recommendationService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  # ── Ad Service ──────────────────────────────────────────────────────────────
+  adService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  # ── Email Service ────────────────────────────────────────────────────────────
+  emailService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+
+  # ── Payment Service ──────────────────────────────────────────────────────────
+  paymentService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+
+  # ── Shipping Service ─────────────────────────────────────────────────────────
+  shippingService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+
+  # ── Currency Service ─────────────────────────────────────────────────────────
+  currencyService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+
+  # ── Load Generator ──────────────────────────────────────────────────────────
+  loadGenerator:
+    # Keep load generator enabled in staging to simulate production traffic.
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ── Flagd ────────────────────────────────────────────────────────────────────
+  flagd:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# ─── Bundled observability stack ─────────────────────────────────────────────
+# In staging, use the bundled components for simplicity.
+# TODO: Consider migrating to dedicated kube-prometheus-stack + Loki + Tempo.
+jaeger:
+  enabled: true
+
+prometheus:
+  enabled: true
+
+grafana:
+  enabled: true
+
+opensearch:
+  enabled: true
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+kafka:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 300m
+      memory: 1Gi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+
+# ─── Autoscaling ─────────────────────────────────────────────────────────────
+# Conservative autoscaling in staging to validate HPA behaviour.
+# Thresholds are more aggressive than prod to surface issues early.
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80

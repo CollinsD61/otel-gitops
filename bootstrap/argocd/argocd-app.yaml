@@ -1,0 +1,68 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# bootstrap/argocd/argocd-app.yaml
+#
+# ArgoCD self-manages its own installation via this Application.
+# Chart: https://argoproj.github.io/argo-helm
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+    tier: bootstrap
+spec:
+  project: default
+
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-cd
+    # TODO: Pin to the version matching your cluster's ArgoCD installation.
+    targetRevision: "7.3.4"
+    helm:
+      releaseName: argocd
+      valueFiles:
+        - $values/bootstrap/argocd/argocd-values.yaml
+
+  # Use a multi-source approach to reference values from this GitOps repo.
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: "7.3.4"
+      helm:
+        releaseName: argocd
+        valueFiles:
+          - $values/bootstrap/argocd/argocd-values.yaml
+    - repoURL: https://github.com/CollinsD61/otel-gitops
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true   # Required for large CRDs
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Ignore differences that ArgoCD modifies at runtime (e.g., leader election).
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

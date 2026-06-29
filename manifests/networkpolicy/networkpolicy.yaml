@@ -1,0 +1,166 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# manifests/networkpolicy/networkpolicy.yaml
+#
+# NetworkPolicy resources for the otel-demo namespace.
+#
+# DESIGN:
+#   - Default-deny all ingress and egress traffic.
+#   - Explicitly allow only required communication paths.
+#   - Services communicate using label selectors (not IP addresses).
+#
+# IMPORTANT:
+#   NetworkPolicy requires a CNI plugin that supports it (e.g., Calico, Cilium,
+#   Weave). Kind uses kindnet which does NOT enforce NetworkPolicy by default.
+#   TODO: Install Calico or Cilium for NetworkPolicy enforcement.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Default deny-all policy ────────────────────────────────────────────────────
+# This policy blocks all ingress and egress traffic by default.
+# Subsequent policies below explicitly allow what is needed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  podSelector: {}   # Matches ALL pods in the namespace
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+# ── Allow ingress from NGINX Ingress Controller ────────────────────────────────
+# Permits the NGINX Ingress Controller to route external HTTP/HTTPS traffic
+# to the frontend service.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-nginx-to-frontend
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  podSelector:
+    matchLabels:
+      # TODO: Verify the label key/value used by the chart for the frontend Pod.
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080   # TODO: Confirm the frontend container port
+
+---
+# ── Allow intra-namespace traffic ─────────────────────────────────────────────
+# Allows all Pods within the otel-demo namespace to talk to each other.
+# This is required because the microservices call each other directly.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-intra-namespace
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  podSelector: {}   # All pods
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}   # Any pod in the same namespace
+  egress:
+    - to:
+        - podSelector: {}   # Any pod in the same namespace
+
+---
+# ── Allow egress to kube-dns ──────────────────────────────────────────────────
+# All pods need DNS resolution; allow UDP/TCP on port 53 to kube-system.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-dns
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+---
+# ── Allow egress to OpenTelemetry Collector ───────────────────────────────────
+# Microservices send telemetry (traces, metrics, logs) to the OTel Collector.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-to-otel-collector
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  podSelector: {}   # All pods can send telemetry
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              # TODO: Verify this label matches the OTel Collector pod selector.
+              app.kubernetes.io/component: opentelemetry-collector
+      ports:
+        - protocol: TCP
+          port: 4317   # OTLP gRPC
+        - protocol: TCP
+          port: 4318   # OTLP HTTP
+
+---
+# ── Allow ArgoCD to reach the namespace ───────────────────────────────────────
+# Permits ArgoCD's application controller to read and write resources.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-argocd-access
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: argocd
+
+# TODO: Add NetworkPolicy for:
+#   - Prometheus scraping (port 8889 on OTel Collector)
+#   - Grafana access to Prometheus / Loki / Tempo
+#   - External secrets operator

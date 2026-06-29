@@ -1,0 +1,80 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# applications/dev/otel-demo.yaml
+#
+# ArgoCD Application — OpenTelemetry Demo (DEV environment)
+#
+# PURPOSE:
+#   Deploys the OpenTelemetry Demo Helm chart from the official upstream
+#   repository into the dev namespace.  This environment is optimised for
+#   fast feedback: lower replicas, minimal resources, and permissive policies.
+#
+# CHART:
+#   https://open-telemetry.github.io/opentelemetry-helm-charts
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-demo-dev
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: otel-demo
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+    environment: dev
+  annotations:
+    # Link back to the source repository for quick navigation.
+    # TODO: Update with your fork URL.
+    argocd.argoproj.io/manifest-generate-paths: "applications/dev"
+spec:
+  project: default
+
+  sources:
+    # ── Source 1: Upstream OpenTelemetry Demo Helm chart ──────────────────────
+    # The chart is consumed directly from the official Helm repository.
+    # It is NOT vendored / copied into this repository.
+    - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+      chart: opentelemetry-demo
+      # Pinned to the latest release as of 2026-06-29.
+      # Check for newer versions: https://github.com/open-telemetry/opentelemetry-helm-charts/releases
+      targetRevision: "0.40.9"
+      helm:
+        releaseName: otel-demo
+        # Reference the values file from Source 2 using the $values alias.
+        valueFiles:
+          - $values/environments/dev/values.yaml
+
+    # ── Source 2: This GitOps repository (for environment values) ─────────────
+    # Using the multi-source feature to keep values in this repo while the
+    # chart lives upstream.
+    - repoURL: https://github.com/CollinsD61/otel-gitops
+      targetRevision: HEAD
+      ref: values  # Alias used by $values in valueFiles above
+
+  destination:
+    server: https://kubernetes.default.svc
+    # All environments use the same namespace name; they are isolated by cluster
+    # or by ArgoCD project in a multi-cluster setup.
+    # TODO: For multi-cluster, change server: to the dev cluster API URL.
+    namespace: otel-demo
+
+  syncPolicy:
+    automated:
+      prune: true       # Remove resources deleted from Git
+      selfHeal: true    # Revert manual changes to the cluster
+    syncOptions:
+      - CreateNamespace=true        # Create otel-demo namespace automatically
+      - ServerSideApply=true        # Recommended for Helm charts with CRDs
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true              # Prune after all other resources are synced
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # ── Revision history ─────────────────────────────────────────────────────────
+  # Keep the last 5 revisions for rollback capability.
+  revisionHistoryLimit: 5

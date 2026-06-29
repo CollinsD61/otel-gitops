@@ -1,0 +1,262 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# environments/dev/values.yaml
+#
+# Helm values for the OpenTelemetry Demo — DEV environment
+#
+# CHART: opentelemetry-demo
+# REPO:  https://open-telemetry.github.io/opentelemetry-helm-charts
+# REF:   https://github.com/open-telemetry/opentelemetry-demo/blob/main/helm-chart/README.md
+#
+# PHILOSOPHY:
+#   - Minimal resources to reduce cost on developer workstations / CI clusters.
+#   - Single replicas for all services.
+#   - Services exposed via NodePort for easy local access.
+#   - Autoscaling disabled.
+#   - Debug logging enabled.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ─── Global settings ─────────────────────────────────────────────────────────
+global:
+  # TODO: Override the image tag when testing a specific build.
+  # imageTag: "latest"
+  imagePullPolicy: IfNotPresent   # Avoid pulling on every Pod restart in dev
+
+# ─── OpenTelemetry Collector ─────────────────────────────────────────────────
+opentelemetry-collector:
+  enabled: true
+
+  replicaCount: 1
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # TODO: Enable debug exporter for local development troubleshooting.
+  # config:
+  #   exporters:
+  #     debug:
+  #       verbosity: detailed
+
+# ─── Demo services ───────────────────────────────────────────────────────────
+# The OpenTelemetry Demo chart deploys many microservices.
+# Only override what differs from chart defaults.
+components:
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 300m
+        memory: 256Mi
+
+    service:
+      # NodePort exposes the service on a static port for local Kind access.
+      type: NodePort
+      # TODO: Set nodePort to a fixed value to avoid port conflicts locally.
+      # nodePort: 30080
+
+    # Ingress disabled in dev; use kubectl port-forward or NodePort instead.
+    ingress:
+      enabled: false
+
+  # ── Cart Service ───────────────────────────────────────────────────────────
+  cartService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  # ── Product Catalog ─────────────────────────────────────────────────────────
+  productCatalogService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  # ── Checkout ────────────────────────────────────────────────────────────────
+  checkoutService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  # ── Recommendation ──────────────────────────────────────────────────────────
+  recommendationService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi    # Python service needs more memory
+      limits:
+        cpu: 300m
+        memory: 512Mi
+
+  # ── Ad Service ──────────────────────────────────────────────────────────────
+  adService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 300Mi   # JVM warmup
+      limits:
+        cpu: 300m
+        memory: 512Mi
+
+  # ── Email Service ────────────────────────────────────────────────────────────
+  emailService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  # ── Payment Service ──────────────────────────────────────────────────────────
+  paymentService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  # ── Shipping Service ─────────────────────────────────────────────────────────
+  shippingService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  # ── Currency Service ─────────────────────────────────────────────────────────
+  currencyService:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+  # ── Load Generator (Locust) ─────────────────────────────────────────────────
+  loadGenerator:
+    # Enable in dev to generate synthetic traffic for testing.
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ── Flagd (Feature Flags) ────────────────────────────────────────────────────
+  flagd:
+    enabled: true
+    replicaCount: 1
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+# ─── Jaeger (bundled) ────────────────────────────────────────────────────────
+# The chart includes a bundled Jaeger instance for local tracing.
+# TODO: Replace with a dedicated Jaeger or Tempo deployment for production.
+jaeger:
+  enabled: true
+
+# ─── Prometheus (bundled) ─────────────────────────────────────────────────────
+# The chart includes a bundled Prometheus instance.
+# TODO: Replace with the kube-prometheus-stack for production.
+prometheus:
+  enabled: true
+
+# ─── Grafana (bundled) ────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+
+# ─── OpenSearch (bundled) ─────────────────────────────────────────────────────
+opensearch:
+  enabled: true
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# ─── Kafka (bundled) ─────────────────────────────────────────────────────────
+kafka:
+  enabled: true
+
+  replicaCount: 1    # Single broker is fine for dev
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# ─── Autoscaling ─────────────────────────────────────────────────────────────
+# Autoscaling is disabled in dev to reduce complexity.
+# TODO: Enable in staging/prod to handle variable load.
+autoscaling:
+  enabled: false

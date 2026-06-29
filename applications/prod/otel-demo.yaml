@@ -1,0 +1,81 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# applications/prod/otel-demo.yaml
+#
+# ArgoCD Application — OpenTelemetry Demo (PRODUCTION environment)
+#
+# PURPOSE:
+#   Production deployment with full replicas, resource limits, HPA, and
+#   strict self-healing.  Changes here MUST go through a pull request and
+#   code review before merging.
+#
+# CHART:
+#   https://open-telemetry.github.io/opentelemetry-helm-charts
+#
+# WARNING:
+#   - Do NOT manually edit resources in this namespace.
+#   - All changes must flow through Git (GitOps).
+#   - selfHeal=true will revert any manual changes within seconds.
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-demo-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: otel-demo
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+    environment: prod
+  annotations:
+    # TODO: Update with your fork URL.
+    argocd.argoproj.io/manifest-generate-paths: "applications/prod"
+    # TODO: Add notification annotations for Slack / PagerDuty alerts on sync failures.
+    # notifications.argoproj.io/subscribe.on-sync-failed.slack: ops-alerts
+spec:
+  project: default
+
+  sources:
+    # ── Source 1: Upstream OpenTelemetry Demo Helm chart ──────────────────────
+    - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+      chart: opentelemetry-demo
+      # IMPORTANT: Always pin production to an exact chart version.
+      # Never use floating versions (e.g., "*", "latest") in production.
+      # Pinned to the latest release as of 2026-06-29.
+      # Check for newer versions: https://github.com/open-telemetry/opentelemetry-helm-charts/releases
+      targetRevision: "0.40.9"
+      helm:
+        releaseName: otel-demo
+        valueFiles:
+          - $values/environments/prod/values.yaml
+
+    # ── Source 2: This GitOps repository (for environment values) ─────────────
+    - repoURL: https://github.com/CollinsD61/otel-gitops
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    # TODO: For multi-cluster, change server: to the production cluster API URL.
+    namespace: otel-demo
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true             # Extra safety: prune only after all else syncs
+      - ApplyOutOfSyncOnly=true    # Only apply resources that have drifted
+    retry:
+      limit: 10                    # More retries for production resilience
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+
+  # Keep a longer history for production rollback auditing.
+  revisionHistoryLimit: 20

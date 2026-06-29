@@ -1,0 +1,147 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# manifests/ingress/ingress.yaml
+#
+# Ingress rules for the OpenTelemetry Demo.
+#
+# DESIGN:
+#   - IngressClass: nginx (deployed by bootstrap/ingress-nginx/).
+#   - TLS managed by cert-manager (ClusterIssuer: letsencrypt-prod).
+#   - Hostnames are NOT hardcoded — replace the TODO placeholders.
+#   - This manifest is environment-agnostic; use kustomize overlays or
+#     ArgoCD ApplicationSets to parameterise hostnames per environment.
+#
+# NOTE:
+#   If you manage Ingress via the Helm chart values.yaml (ingress.enabled=true),
+#   you may not need this file.  Keep it here for environments where you need
+#   full control over the Ingress spec.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── OpenTelemetry Demo Frontend Ingress ───────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: otel-demo-frontend
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: otel-demo-frontend
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+  annotations:
+    # Specify the IngressClass to use.
+    kubernetes.io/ingress.class: nginx
+
+    # cert-manager: automatically provision a TLS certificate.
+    # Use letsencrypt-staging for testing; letsencrypt-prod for production.
+    # TODO: Switch to letsencrypt-prod after validating with staging.
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+
+    # Force HTTPS redirect.
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # Increase timeouts for long-running streaming responses.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+
+    # TODO: Enable when rate limiting is needed for production.
+    # nginx.ingress.kubernetes.io/limit-rps: "100"
+    # nginx.ingress.kubernetes.io/limit-connections: "20"
+
+    # TODO: Enable CORS if frontend is accessed from a different origin.
+    # nginx.ingress.kubernetes.io/enable-cors: "true"
+    # nginx.ingress.kubernetes.io/cors-allow-origin: "https://example.com"
+
+spec:
+  ingressClassName: nginx
+
+  tls:
+    - hosts:
+        # TODO: Replace with your actual domain name.
+        - otel-demo.example.com
+      # cert-manager will create this Secret automatically.
+      # TODO: Replace with a name matching your domain.
+      secretName: otel-demo-tls
+
+  rules:
+    # TODO: Replace host with your actual domain name.
+    - host: otel-demo.example.com
+      http:
+        paths:
+          # Route all traffic to the frontend service.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                # TODO: Verify the service name matches what the Helm chart creates.
+                name: otel-demo-frontend
+                port:
+                  number: 8080   # TODO: Verify the frontend service port
+
+---
+# ── Jaeger UI Ingress ─────────────────────────────────────────────────────────
+# Expose the Jaeger tracing UI for the operations team.
+# TODO: Restrict access with IP allowlist or basic auth for production.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: otel-demo-jaeger
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: otel-demo-jaeger
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # TODO: Restrict to VPN/office IP range for production.
+    # nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,192.168.0.0/16"
+spec:
+  ingressClassName: nginx
+
+  tls:
+    - hosts:
+        - jaeger.example.com   # TODO: Replace with your domain
+      secretName: jaeger-tls
+
+  rules:
+    - host: jaeger.example.com   # TODO: Replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: otel-demo-jaeger-query   # TODO: Verify service name
+                port:
+                  number: 16686
+
+---
+# ── Grafana Ingress ────────────────────────────────────────────────────────────
+# TODO: Uncomment when the dedicated Grafana instance is deployed.
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: grafana
+#   namespace: monitoring   # TODO: Update namespace if different
+#   annotations:
+#     kubernetes.io/ingress.class: nginx
+#     cert-manager.io/cluster-issuer: letsencrypt-prod
+#     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+# spec:
+#   ingressClassName: nginx
+#   tls:
+#     - hosts:
+#         - grafana.example.com   # TODO: Replace
+#       secretName: grafana-tls
+#   rules:
+#     - host: grafana.example.com   # TODO: Replace
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: grafana
+#                 port:
+#                   number: 3000

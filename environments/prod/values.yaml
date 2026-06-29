@@ -1,0 +1,276 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# environments/prod/values.yaml
+#
+# Helm values for the OpenTelemetry Demo — PRODUCTION environment
+#
+# CHART: opentelemetry-demo
+# REPO:  https://open-telemetry.github.io/opentelemetry-helm-charts
+#
+# PHILOSOPHY:
+#   - High availability: 3+ replicas for critical services.
+#   - Full resource requests and limits to guarantee QoS.
+#   - Autoscaling enabled with production thresholds.
+#   - TLS enforced via cert-manager (Let's Encrypt production issuer).
+#   - Load generator DISABLED — real users provide traffic.
+#   - Pod disruption budgets should be added (see manifests/hpa/).
+#
+# WARNING:
+#   Do NOT store secrets in this file.
+#   Use Sealed Secrets or External Secrets Operator.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ─── Global settings ─────────────────────────────────────────────────────────
+global:
+  # TODO: Always pin production to an exact, tested image tag.
+  # NEVER use "latest" in production.
+  # imageTag: "1.10.0"
+  imagePullPolicy: IfNotPresent
+
+# ─── OpenTelemetry Collector ─────────────────────────────────────────────────
+opentelemetry-collector:
+  enabled: true
+
+  replicaCount: 3   # Minimum 3 for HA across availability zones
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+  # TODO: Configure a production-grade pipeline:
+  # - Send traces to Tempo / Jaeger
+  # - Send metrics to Prometheus remote write
+  # - Send logs to Loki
+
+# ─── Demo services ───────────────────────────────────────────────────────────
+components:
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+    service:
+      type: ClusterIP   # Exposed via Ingress + LoadBalancer
+
+    ingress:
+      enabled: true
+      # TODO: Replace with your production domain.
+      # hostname: otel-demo.example.com
+      annotations:
+        kubernetes.io/ingress.class: nginx
+        # Use the Let's Encrypt production issuer.
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        # Force HTTPS redirect.
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+        # TODO: Enable rate limiting for production.
+        # nginx.ingress.kubernetes.io/limit-rps: "100"
+        # Enable HSTS.
+        # nginx.ingress.kubernetes.io/configuration-snippet: |
+        #   more_set_headers "Strict-Transport-Security: max-age=31536000";
+      tls:
+        enabled: true
+        # TODO: Replace with your production domain.
+        # secretName: otel-demo-prod-tls
+
+  # ── Cart Service ───────────────────────────────────────────────────────────
+  cartService:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+  # ── Product Catalog ─────────────────────────────────────────────────────────
+  productCatalogService:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+
+  # ── Checkout ────────────────────────────────────────────────────────────────
+  checkoutService:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+
+  # ── Recommendation ──────────────────────────────────────────────────────────
+  recommendationService:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 2Gi
+
+  # ── Ad Service ──────────────────────────────────────────────────────────────
+  adService:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 1Gi
+
+  # ── Email Service ────────────────────────────────────────────────────────────
+  emailService:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ── Payment Service ──────────────────────────────────────────────────────────
+  paymentService:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ── Shipping Service ─────────────────────────────────────────────────────────
+  shippingService:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ── Currency Service ─────────────────────────────────────────────────────────
+  currencyService:
+    enabled: true
+    replicaCount: 3
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ── Load Generator ──────────────────────────────────────────────────────────
+  # DISABLED in production — real users provide traffic.
+  # Enable temporarily for load testing: git push with enabled: true,
+  # then revert after the test.
+  loadGenerator:
+    enabled: false
+
+  # ── Flagd ────────────────────────────────────────────────────────────────────
+  flagd:
+    enabled: true
+    replicaCount: 2
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# ─── Bundled observability stack ─────────────────────────────────────────────
+# TODO: Disable bundled components and connect to dedicated observability stack:
+#   - Prometheus: kube-prometheus-stack (see applications/<env>/monitoring.yaml)
+#   - Tracing: Tempo or Jaeger (see applications/<env>/tempo.yaml)
+#   - Logs: Loki (see applications/<env>/loki.yaml)
+jaeger:
+  enabled: true   # TODO: Replace with dedicated Jaeger / Tempo
+
+prometheus:
+  enabled: true   # TODO: Replace with kube-prometheus-stack
+
+grafana:
+  enabled: true   # TODO: Replace with dedicated Grafana instance
+
+opensearch:
+  enabled: true
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+kafka:
+  enabled: true
+  replicaCount: 3   # Three brokers for production durability
+
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+# ─── Autoscaling ─────────────────────────────────────────────────────────────
+# HPA configuration for production workload elasticity.
+# Per-service HPA manifests are also in manifests/hpa/ for fine-grained control.
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  # Scale out at 60% CPU to give headroom before saturation.
+  targetCPUUtilizationPercentage: 60
+  # Scale out at 75% memory.
+  targetMemoryUtilizationPercentage: 75
+
+# TODO: Add Pod Disruption Budgets to ensure rolling updates do not take all
+# replicas offline simultaneously.
+# PDBs are defined in manifests/networkpolicy/ as separate manifests.

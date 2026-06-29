@@ -1,0 +1,206 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# manifests/hpa/hpa.yaml
+#
+# Horizontal Pod Autoscaler (HPA) manifests for the OpenTelemetry Demo.
+#
+# DESIGN:
+#   - CPU and memory-based scaling for stateless services.
+#   - Scaling behaviour tuned to prevent thrashing (scale-down stabilisation).
+#   - metrics-server must be installed for CPU/memory metrics.
+#   - TODO: Use KEDA or Prometheus Adapter for custom-metric HPA.
+#
+# NOTE:
+#   These HPAs complement the autoscaling settings in values.yaml.
+#   If the Helm chart also creates HPAs, ensure there is no duplication.
+#   Either manage HPAs via Helm values OR via these manifests, not both.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Frontend HPA ───────────────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    # TODO: Verify the deployment name matches what the Helm chart creates.
+    name: otel-demo-frontend
+  minReplicas: 2    # TODO: Adjust per environment (1 for dev, 3 for prod)
+  maxReplicas: 10   # TODO: Adjust to match expected peak load
+
+  metrics:
+    # CPU-based scaling
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilizationPercentage: 60   # TODO: Tune based on profiling
+
+    # Memory-based scaling
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilizationPercentage: 75   # TODO: Tune based on profiling
+
+  behavior:
+    scaleDown:
+      # Prevent rapid scale-down after a traffic spike (default: 5 min).
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1           # Remove at most 1 pod per period
+          periodSeconds: 60
+    scaleUp:
+      # Scale up aggressively to handle sudden traffic increases.
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 4           # Add up to 4 pods per period
+          periodSeconds: 15
+      selectPolicy: Max
+
+---
+# ── Cart Service HPA ───────────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cart-service-hpa
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: cart-service
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: otel-demo-cartservice   # TODO: Verify deployment name
+  minReplicas: 2
+  maxReplicas: 8
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilizationPercentage: 60
+
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+
+---
+# ── Checkout Service HPA ───────────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: checkout-service-hpa
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: checkout-service
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: otel-demo-checkoutservice   # TODO: Verify deployment name
+  minReplicas: 2
+  maxReplicas: 8
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilizationPercentage: 60
+
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+
+---
+# ── Recommendation Service HPA ────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: recommendation-service-hpa
+  namespace: otel-demo
+  labels:
+    app.kubernetes.io/name: recommendation-service
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: otel-demo-recommendationservice   # TODO: Verify deployment name
+  minReplicas: 2
+  maxReplicas: 6
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilizationPercentage: 70   # Python: slightly higher threshold
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilizationPercentage: 80
+
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120   # Slower scale-down for stateful-ish service
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+
+# TODO: Add HPA for:
+#   - productCatalogService
+#   - paymentService
+#   - shippingService
+#   - currencyService
+#   - adService
+# TODO: Consider KEDA for event-driven scaling based on Kafka lag metrics.

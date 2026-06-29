@@ -1,0 +1,69 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# applications/staging/otel-demo.yaml
+#
+# ArgoCD Application — OpenTelemetry Demo (STAGING environment)
+#
+# PURPOSE:
+#   Staging is a production-like environment used for integration testing and
+#   pre-release validation.  Replicas and resource limits are closer to prod.
+#
+# CHART:
+#   https://open-telemetry.github.io/opentelemetry-helm-charts
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-demo-staging
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: otel-demo
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+    environment: staging
+  annotations:
+    # TODO: Update with your fork URL.
+    argocd.argoproj.io/manifest-generate-paths: "applications/staging"
+spec:
+  project: default
+
+  sources:
+    # ── Source 1: Upstream OpenTelemetry Demo Helm chart ──────────────────────
+    - repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+      chart: opentelemetry-demo
+      # Pinned to the latest release as of 2026-06-29.
+      # Check for newer versions: https://github.com/open-telemetry/opentelemetry-helm-charts/releases
+      targetRevision: "0.40.9"
+      helm:
+        releaseName: otel-demo
+        valueFiles:
+          - $values/environments/staging/values.yaml
+
+    # ── Source 2: This GitOps repository (for environment values) ─────────────
+    - repoURL: https://github.com/CollinsD61/otel-gitops
+      targetRevision: HEAD
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    # TODO: For multi-cluster, change server: to the staging cluster API URL.
+    namespace: otel-demo
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  revisionHistoryLimit: 10

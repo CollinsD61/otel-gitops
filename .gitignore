@@ -1,0 +1,57 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# otel-gitops — .gitignore
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ─── OS & Editor artifacts ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.iml
+
+# ─── Secrets — NEVER commit real credentials ─────────────────────────────────
+*.secret
+*.env
+.env
+.env.*
+secrets/
+!secrets/.gitkeep
+
+# ─── Helm ─────────────────────────────────────────────────────────────────────
+# Rendered / downloaded charts are never committed in a GitOps repo that
+# references upstream charts by URL.
+charts/
+*.tgz
+.helm/
+
+# ─── ArgoCD generated output ─────────────────────────────────────────────────
+# Local kubeconfig overrides
+kubeconfig
+kubeconfig.yaml
+*.kubeconfig
+
+# ─── Terraform / Pulumi (if added later) ─────────────────────────────────────
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+Pulumi.*.yaml
+
+# ─── Python / tooling ─────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ─── Node / scripts ───────────────────────────────────────────────────────────
+node_modules/
+dist/
+
+# ─── Temporary / scratch ──────────────────────────────────────────────────────
+tmp/
+temp/
+*.log
+*.bak

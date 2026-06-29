@@ -1,0 +1,120 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# bootstrap/root-app.yaml
+#
+# ArgoCD "App of Apps" root application.
+#
+# PURPOSE:
+#   This is the single manifest you apply manually (once) to bootstrap the
+#   entire cluster.  ArgoCD then manages every other Application declared
+#   inside this repository without further manual intervention.
+#
+# DEPLOY:
+#   kubectl apply -f bootstrap/root-app.yaml
+#
+# DOCS:
+#   https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+  # Ensures ArgoCD deletes child Applications before removing this one.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+    tier: bootstrap
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: "."
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/CollinsD61/otel-gitops
+    targetRevision: HEAD   # Track the default branch (main)
+
+    # The root-app watches the entire applications/ tree so that adding a new
+    # environment or application only requires a git push — no manual kubectl.
+    path: applications
+
+    # Use a recursive directory pattern so ArgoCD discovers every YAML file
+    # under applications/**/*.yaml automatically.
+    directory:
+      recurse: true
+      # Only load files that are ArgoCD Application manifests.
+      include: "*.yaml"
+
+  destination:
+    # Deploy child Applications into the ArgoCD namespace of the same cluster.
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true       # Remove resources no longer in Git
+      selfHeal: true    # Re-apply if someone manually changes the cluster
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+# ──────────────────────────────────────────────────────────────────────────────
+# Bootstrap Application — Infrastructure layer
+#
+# This second Application watches the bootstrap/ directory (excluding
+# root-app.yaml itself) so that cluster-wide infrastructure (NGINX, cert-
+# manager, metrics-server) is also managed by ArgoCD via GitOps.
+# ──────────────────────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bootstrap-infra
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/part-of: otel-gitops
+    tier: bootstrap
+spec:
+  project: default
+
+  source:
+    # TODO: Change repoURL to match your fork / organisation.
+    repoURL: https://github.com/CollinsD61/otel-gitops
+    targetRevision: HEAD
+
+    # Watches every Application manifest under bootstrap/*/
+    path: bootstrap
+
+    directory:
+      recurse: true
+      include: "*.yaml"
+      # Exclude this file itself to avoid a self-referential loop.
+      exclude: "root-app.yaml"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
